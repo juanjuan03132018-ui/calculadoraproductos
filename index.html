@@ -1,0 +1,234 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Calculadora de Precios de Venta</title>
+<link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;600&display=swap" rel="stylesheet">
+<script src="https://cdnjs.cloudflare.com/ajax/libs/jspdf/2.5.1/jspdf.umd.min.js"></script>
+<style>
+  body {
+    font-family: 'Inter', sans-serif;
+    background: linear-gradient(135deg, #f6f8fa, #e9eff5);
+    margin: 0;
+    padding: 20px;
+  }
+
+  h1 {
+    text-align: center;
+    color: #2c3e50;
+    margin-bottom: 30px;
+  }
+
+  .container {
+    max-width: 900px;
+    margin: auto;
+    background: #ffffff;
+    padding: 30px;
+    border-radius: 15px;
+    box-shadow: 0 8px 25px rgba(0,0,0,0.12);
+  }
+
+  table {
+    width: 100%;
+    border-collapse: collapse;
+    margin-bottom: 20px;
+    border-radius: 10px;
+    overflow: hidden;
+  }
+
+  th, td {
+    padding: 12px 15px;
+    text-align: left;
+  }
+
+  th {
+    background-color: #3498db;
+    color: white;
+    font-weight: 600;
+  }
+
+  tr:nth-child(even) {
+    background-color: #f3f6fa;
+  }
+
+  input[type="text"], input[type="number"] {
+    padding: 7px;
+    width: 90%;
+    border: 1px solid #ccc;
+    border-radius: 6px;
+    transition: 0.3s;
+  }
+
+  input[type="text"]:focus, input[type="number"]:focus {
+    border-color: #3498db;
+    box-shadow: 0 0 5px rgba(52,152,219,0.4);
+    outline: none;
+  }
+
+  button {
+    padding: 10px 20px;
+    background: #3498db;
+    color: white;
+    border: none;
+    border-radius: 8px;
+    cursor: pointer;
+    font-weight: 600;
+    transition: 0.3s;
+  }
+
+  button:hover {
+    background: #2980b9;
+  }
+
+  .btn-pdf {
+    background: #e74c3c;
+    margin-left: 10px;
+  }
+
+  .btn-pdf:hover {
+    background: #c0392b;
+  }
+
+  .result {
+    margin-top: 25px;
+    background: #f7f9fc;
+    padding: 20px;
+    border-radius: 12px;
+    box-shadow: inset 0 2px 5px rgba(0,0,0,0.05);
+  }
+
+  label {
+    font-weight: 500;
+  }
+
+  .flex-row {
+    display: flex;
+    align-items: center;
+    gap: 10px;
+    margin-top: 15px;
+  }
+</style>
+</head>
+<body>
+
+<div class="container">
+  <h1>Calculadora de Precios de Venta</h1>
+
+  <table id="productTable">
+    <thead>
+      <tr>
+        <th>Producto</th>
+        <th>Precio Unitario ($)</th>
+        <th>Cantidad</th>
+        <th>% Ganancia</th>
+        <th>Acción</th>
+      </tr>
+    </thead>
+    <tbody></tbody>
+  </table>
+
+  <div class="flex-row">
+    <button onclick="addProduct()">Agregar Producto</button>
+    <label>Valor del envío: $</label>
+    <input type="number" id="shipping" value="0" min="0">
+  </div>
+
+  <div class="flex-row">
+    <button onclick="calculatePrices()">Calcular Precios de Venta</button>
+    <button class="btn-pdf" onclick="downloadPDF()">Descargar PDF</button>
+  </div>
+
+  <div class="result" id="result"></div>
+</div>
+
+<script>
+let productCount = 0;
+
+function addProduct() {
+  productCount++;
+  const tableBody = document.querySelector('#productTable tbody');
+  const row = document.createElement('tr');
+  row.id = 'productRow' + productCount;
+  row.innerHTML = `
+    <td><input type="text" placeholder="Nombre" /></td>
+    <td><input type="number" value="0" min="0"/></td>
+    <td><input type="number" value="1" min="1"/></td>
+    <td><input type="number" value="0" min="0"/>%</td>
+    <td><button onclick="removeProduct('productRow${productCount}')">Eliminar</button></td>
+  `;
+  tableBody.appendChild(row);
+}
+
+function removeProduct(id) {
+  document.getElementById(id).remove();
+}
+
+let lastProducts = [];
+
+function calculatePrices() {
+  const rows = document.querySelectorAll('#productTable tbody tr');
+  let totalCost = 0;
+  let products = [];
+
+  rows.forEach(row => {
+    const inputs = row.querySelectorAll('input');
+    const name = inputs[0].value || 'Producto';
+    const price = parseFloat(inputs[1].value) || 0;
+    const quantity = parseInt(inputs[2].value) || 1;
+    const profitPercent = parseFloat(inputs[3].value) || 0;
+    const subtotal = price * quantity;
+    totalCost += subtotal;
+    products.push({ name, price, quantity, profitPercent, subtotal });
+  });
+
+  const shipping = parseFloat(document.getElementById('shipping').value) || 0;
+
+  let resultHTML = '<h3>Precios de Venta:</h3><table><tr><th>Producto</th><th>Cantidad</th><th>Precio Unitario de Venta ($)</th><th>Subtotal ($)</th></tr>';
+
+  products.forEach(p => {
+    const shippingShare = (p.subtotal / totalCost) * shipping;
+    const totalWithShipping = p.subtotal + shippingShare;
+    const totalWithProfit = totalWithShipping * (1 + p.profitPercent / 100);
+    const sellingPriceUnit = totalWithProfit / p.quantity;
+
+    resultHTML += `<tr>
+      <td>${p.name}</td>
+      <td>${p.quantity}</td>
+      <td>${sellingPriceUnit.toFixed(2)}</td>
+      <td>${totalWithProfit.toFixed(2)}</td>
+    </tr>`;
+
+    p.sellingPriceUnit = sellingPriceUnit.toFixed(2);
+    p.totalWithProfit = totalWithProfit.toFixed(2);
+  });
+
+  resultHTML += '</table>';
+  document.getElementById('result').innerHTML = resultHTML;
+  lastProducts = products;
+}
+
+function downloadPDF() {
+  if (lastProducts.length === 0) {
+    alert("Primero calcula los precios de venta.");
+    return;
+  }
+
+  const { jsPDF } = window.jspdf;
+  const doc = new jsPDF();
+  doc.setFontSize(16);
+  doc.text("Precios de Venta de Productos", 14, 20);
+  doc.setFontSize(12);
+  let y = 30;
+
+  lastProducts.forEach(p => {
+    doc.text(`${p.name} | Cantidad: ${p.quantity} | Precio Unitario: $${p.sellingPriceUnit} | Total: $${p.totalWithProfit}`, 14, y);
+    y += 10;
+  });
+
+  doc.save("precios_venta.pdf");
+}
+</script>
+
+</body>
+</html>
